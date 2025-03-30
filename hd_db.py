@@ -1,15 +1,14 @@
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import numpy as np
 import joblib
 import tensorflow as tf
 import uvicorn
-
-tf.config.optimizer.set_jit(True) 
+import asyncio
 
 app = FastAPI()
 app.add_middleware(
@@ -20,15 +19,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load models and scalers
-def load_models():
-    global diabetes_model, heart_disease_model, diabetes_scaler, heart_scaler
-    diabetes_model = tf.keras.models.load_model("models/diabetes_model.keras")
-    heart_disease_model = tf.keras.models.load_model("models/heart_disease_model.keras")
-    diabetes_scaler = joblib.load("models/db_scaler.joblib")
-    heart_scaler = joblib.load("models/hd_scaler.joblib")
-
-load_models()
+diabetes_model = tf.keras.models.load_model("models/diabetes_model.keras")
+heart_disease_model = tf.keras.models.load_model("models/heart_disease_model.keras")
+diabetes_scaler = joblib.load("models/db_scaler.joblib")
+heart_scaler = joblib.load("models/hd_scaler.joblib")
 
 class DiabetesInput(BaseModel):
     glucose: float
@@ -50,6 +44,11 @@ class HeartDiseaseInput(BaseModel):
     slope: int
     ca: int
 
+@app.api_route("/ping", methods=["GET", "HEAD"])
+async def ping():
+    await asyncio.sleep(0.1)
+    return {"message": "server is running"}
+
 def process_diabetes(input_data: DiabetesInput):
     inp_arr = np.array([list(input_data.dict().values())])
     return diabetes_scaler.transform(inp_arr)
@@ -63,20 +62,27 @@ async def predict_diabetes(input_data: DiabetesInput):
     try:
         input_scaled = process_diabetes(input_data)
         result = diabetes_model.predict(input_scaled)[0][0]
-        diagnosis = "You have diabetes" if result > 0.5 else "You don't have diabetes"
-        return {"result": diagnosis}
+        if result > 0.5:
+            diag=f"You have diabetes ({str(result*100)}% confidence)"
+        else:
+            diag=f"You don't have diabetes ({str(result*100)}% confidence)"
+        return {"result": diag}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"error": str(e)}
 
 @app.post("/predict/heart_disease")
 async def predict_heart_disease(input_data: HeartDiseaseInput):
     try:
         input_scaled = process_heart_disease(input_data)
         result = heart_disease_model.predict(input_scaled)[0][0]
-        diagnosis = "You have Heart disease" if result > 0.5 else "You don't have Heart disease"
-        return {"result": diagnosis}
+        if result > 0.5:
+            diag=f"You have Heart disease ({str(result*100)}% confidence)"
+        else:
+            diag=f"You don't Heart disease ({str(result*100)}% confidence)"
+        return {"result": diag}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"error": str(e)}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
