@@ -63,9 +63,9 @@ async def predict_diabetes(input_data: DiabetesInput):
         input_scaled = process_diabetes(input_data)
         result = diabetes_model.predict(input_scaled)[0][0]
         if result > 0.5:
-            diag=f"You have diabetes ({str(result*100):.2f}% confidence)"
+            diag=f"You have diabetes"
         else:
-            diag=f"You don't have diabetes ({str(result*100):.2f}% confidence)"
+            diag=f"You don't have diabetes"
         return {"result": diag}
     except Exception as e:
         return {"error": str(e)}
@@ -76,9 +76,9 @@ async def predict_heart_disease(input_data: HeartDiseaseInput):
         input_scaled = process_heart_disease(input_data)
         result = heart_disease_model.predict(input_scaled)[0][0]
         if result > 0.5:
-            diag=f"You have Heart disease ({str(result*100):.2f}% confidence)"
+            diag=f"You have Heart disease"
         else:
-            diag=f"You don't Heart disease ({str(result*100):.2f}% confidence)"
+            diag=f"You don't Heart disease"
         return {"result": diag}
     except Exception as e:
         return {"error": str(e)}
